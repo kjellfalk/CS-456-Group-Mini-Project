@@ -1,11 +1,13 @@
 
 # Authentication and ticket service
 # Milestone 3: Heartbeat thread
-
+import sys
 import json
 import secrets
 import socket
 import threading
+
+from protocol import build_heartbeat
 
 HOST = "127.0.0.1"
 PORT = 5000
@@ -13,6 +15,9 @@ PORT = 5000
 MONITOR_HOST = "127.0.0.1"
 MONITOR_PORT = 5001
 HEARTBEAT_INTERVAL = 2
+
+SECURE_HEARTBEAT = "--secure" in sys.argv
+NODE_ID = "primary"
 
 DUMMY_USERS = {
     "student": "cs456-demo"
@@ -68,13 +73,14 @@ def handle_request(request):
 
 def heartbeat_loop(stop_event):
     """Send periodic UDP heartbeats to the monitor."""
+    boot_id = secrets.token_hex(4)
+    seq = 0
     with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as heartbeat_socket:
         while not stop_event.is_set():
             try:
-                heartbeat_socket.sendto(
-                    b"HEARTBEAT",
-                    (MONITOR_HOST, MONITOR_PORT)
-                )
+                beat = build_heartbeat(NODE_ID, boot_id, seq, SECURE_HEARTBEAT)
+                heartbeat_socket.sendto(beat, (MONITOR_HOST, MONITOR_PORT))
+                seq += 1
             except OSError as error:
                 print(f"Heartbeat send failed: {error}")
 

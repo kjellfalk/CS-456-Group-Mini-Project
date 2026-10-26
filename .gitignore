@@ -1,0 +1,10 @@
+# Python bytecode
+__pycache__/
+*.pyc
+
+# Monitor incident log (regenerated on every run)
+incidents.log
+*.log
+
+# macOS
+.DS_Store
