@@ -8,6 +8,9 @@
 
 ### Kjell Falk:
 
+* auth_service.py
+* created GitHub repo
+
 ### Myla Vencill:
 
 * client.py
