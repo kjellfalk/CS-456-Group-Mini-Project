@@ -8,9 +8,9 @@ The monitor only listens on a socket and never touches the service process,
 so it keeps running when the service dies.
 
 Usage:
-    python3 monitor.py                 # baseline: accepts plain "HEARTBEAT"
-    python3 monitor.py --secure        # requires HMAC-signed, non-replayed beats
-    python3 monitor.py --quiet         # hide the per-beat lines, show only events
+    python3 heartbeat_monitor.py                 # baseline: accepts plain "HEARTBEAT"
+    python3 heartbeat_monitor.py --secure        # requires HMAC-signed, non-replayed beats
+    python3 heartbeat_monitor.py --quiet         # hide the per-beat lines, show only events
 """
 import argparse
 import socket
