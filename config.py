@@ -28,3 +28,20 @@ SHARED_SECRET = os.environ.get("HB_SECRET", "cs456-demo-secret-key").encode()
 
 # Monitor appends every state change and alert here.
 INCIDENT_LOG = "incidents.log"
+
+# Part 2: script the monitor launches when the primary is declared DOWN.
+# It must sit in this folder, accept --secure, load the checkpoint, take over
+# SERVICE_PORT, and send heartbeats. If SERVICE_PORT is still taken (the
+# primary is alive after a false failover), it should exit instead of serving.
+STANDBY_SCRIPT = "secondary.py"
+
+# The standby's own output goes here, so it doesn't mix with the monitor's.
+STANDBY_LOG = "standby.log"
+
+# Part 2: the primary writes its tickets here after every LOGIN; the standby
+# loads them on start-up.
+CHECKPOINT_FILE = "checkpoint.json"
+
+# HMAC key for the checkpoint. Separate from the heartbeat key, so leaking one
+# doesn't expose the other. Override with the CKPT_SECRET environment variable.
+CHECKPOINT_SECRET = os.environ.get("CKPT_SECRET", "cs456-checkpoint-secret-key").encode()

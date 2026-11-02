@@ -2,9 +2,16 @@
 
 ### Jason Arthur:
 
+#### Part 1:
 * config.py
 * heartbeat_monitor.py
 * protocol.py
+
+#### Part 2:
+* updated heartbeat_monitor.py for automated failover (launches the standby on crash, logs crash detected → failover triggered → service restored)
+* updated config.py with standby and checkpoint settings
+* .gitignore
+* tested failover, checkpoint tampering, and false failover (split-brain)
 
 ### Kjell Falk:
 
