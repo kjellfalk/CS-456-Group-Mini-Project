@@ -6,5 +6,10 @@ __pycache__/
 incidents.log
 *.log
 
+# Checkpoint state (regenerated on every run)
+checkpoint.json
+checkpoint.json.tmp
+
+
 # macOS
 .DS_Store
