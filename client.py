@@ -1,78 +1,82 @@
-"""
-client.py
-Test client for the Authentication/Ticket Service.
-"""
-
-import socket
+"""Part 2 client: retries after a crash and validates the SAME original ticket."""
 import json
+import socket
 import time
-import sys
+
 import config
 
-def send_request(sock, request_dict):
-    """Encodes a dictionary as JSON, sends it, and parses the JSON response."""
+
+def connect_with_retry(timeout_s=30, delay_s=0.5):
+    started = time.monotonic()
+    attempt = 0
+    while time.monotonic() - started < timeout_s:
+        attempt += 1
+        try:
+            sock = socket.create_connection((config.HOST, config.SERVICE_PORT), timeout=2)
+            sock.settimeout(5)
+            print(f"[CLIENT] connected after {time.monotonic()-started:.2f}s; attempt {attempt}", flush=True)
+            return sock, sock.makefile("rb")
+        except OSError:
+            print(f"[CLIENT] reconnect attempt {attempt}", flush=True)
+            time.sleep(delay_s)
+    return None, None
+
+
+def send_request(sock, stream, request):
     try:
-        line = json.dumps(request_dict) + "\n"
-        sock.sendall(line.encode("utf-8"))
-        
-        # Read the response
-        response_line = sock.recv(4096)
-        if not response_line:
-            return None
-        return json.loads(response_line.decode("utf-8"))
-    except (ConnectionResetError, BrokenPipeError):
+        sock.sendall((json.dumps(request) + "\n").encode())
+        raw = stream.readline()
+        return json.loads(raw) if raw else None
+    except (OSError, ValueError):
         return None
 
+
+def _close(sock, stream):
+    if stream is not None:
+        stream.close()
+    if sock is not None:
+        sock.close()
+
+
 def main():
-    print(f"Connecting to Authentication Service at {config.HOST}:{config.SERVICE_PORT}...\n")
-    
+    sock, stream = connect_with_retry()
+    if not sock:
+        print("[CLIENT] initial connection failed", flush=True)
+        return
     try:
-        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
-            sock.connect((config.HOST, config.SERVICE_PORT))
-            
-            # --- 1. LOGIN ---
-            login_req = {
-                "type": "LOGIN",
-                "username": "student",
-                "password": "cs456-demo"
-            }
-            print(f"[*] Sending LOGIN Request: {login_req}")
-            resp = send_request(sock, login_req)
-            print(f"[*] Response Received: {resp}\n")
-            
-            if not resp or resp.get("status") != "OK":
-                print("[!] Login failed. Exiting.")
-                return
-            
-            ticket = resp.get("ticket")
-            
-            # --- 2. VALIDATE (Looping to trigger server crash) ---
-            validate_req = {
-                "type": "VALIDATE",
-                "ticket": ticket
-            }
-            
-            req_count = 1
-            while True:
-                print(f"[Request {req_count}] Sending VALIDATE Request...")
-                resp = send_request(sock, validate_req)
-                
-                if not resp:
-                    # An empty response or connection error indicates the server crashed
-                    print("\n[!] Connection lost! The authentication service crashed.")
-                    print("[!] Check the Heartbeat Monitor to see if it detects the failure.")
-                    break
-                
-                print(f"    Received: {resp}")
-                req_count += 1
-                time.sleep(1)  # Sleep briefly to space out requests
-                
-    except ConnectionRefusedError:
-        print(f"[!] Connection refused. Is the auth_service.py running on port {config.SERVICE_PORT}?")
+        response = send_request(sock, stream, {"type": "LOGIN", "username": "student", "password": "cs456-demo"})
+        if not response or response.get("status") != "OK":
+            print(f"[CLIENT] login failed: {response}", flush=True)
+            return
+        ticket = response["ticket"]
+        print(f"[CLIENT] TICKET ISSUED: {ticket} (will reuse after failover)", flush=True)
+        count = 0
+        recovered = False
+        while True:
+            count += 1
+            response = send_request(sock, stream, {"type": "VALIDATE", "ticket": ticket})
+            if response is None:
+                print("[CLIENT] connection lost; waiting for automated recovery...", flush=True)
+                _close(sock, stream)
+                sock, stream = connect_with_retry()
+                if not sock:
+                    print("[CLIENT] recovery failed: no service after 30s", flush=True)
+                    return
+                recovered = True
+                continue
+            print(f"[CLIENT] VALIDATE #{count}: {response}", flush=True)
+            if recovered:
+                if response.get("status") == "OK":
+                    print("[PASS] SAME pre-crash ticket accepted by recovered secondary", flush=True)
+                else:
+                    print("[FAIL] Pre-crash ticket was NOT restored", flush=True)
+                recovered = False
+            time.sleep(1)
     except KeyboardInterrupt:
-        print("\nClient stopped by user.")
-    except Exception as e:
-        print(f"\n[!] An unexpected error occurred: {e}")
+        print("[CLIENT] stopped", flush=True)
+    finally:
+        _close(sock, stream)
+
 
 if __name__ == "__main__":
     main()
