@@ -8,15 +8,20 @@
 * protocol.py
 
 #### Part 2:
-* updated heartbeat_monitor.py for automated failover (launches the standby on crash, logs crash detected → failover triggered → service restored)
+* updated heartbeat_monitor.py for automated failover (launches the standby on crash, logs crash detected â†’ failover triggered â†’ service restored)
 * updated config.py with standby and checkpoint settings
 * .gitignore
 * tested failover, checkpoint tampering, and false failover (split-brain)
 
 ### Kjell Falk:
 
+### Part 1:
 * auth_service.py
 * created GitHub repo
+
+### Part 2:  
+* created checkpoint.py
+* updated auth_service.py
 
 ### Myla Vencill:
 
@@ -39,7 +44,7 @@
 - Verified that the secure monitor rejected previously accepted heartbeats using sequence-number replay detection.
 - Conducted the experiments, collected terminal evidence, and submitted the audit script through Pull Request #5.
 
-### Soumyabrata Ghosh � Part 2
+### Soumyabrata Ghosh — Part 2
 
 - Extended audit_script.py with false-failover and checkpoint-tampering attacks.
 - Implemented a heartbeat-dropping relay to simulate network communication failures.
