@@ -20,8 +20,15 @@
 
 ### Myla Vencill:
 
+#### Part 1:
 * client.py
 * Wrote some of the report document
+
+#### Part 2:
+* Updated client.py with fault-tolerant logic to automatically loop and reconnect to the standby node after a primary server crash.
+* Implemented persistent ticket validation tests to demonstrate pre-crash state preservation.
+* Improved network read reliability by converting socket reception to file-like stream reading (readline()) and added JSONDecodeError handling for interrupted transmissions.
+* Started report document
 
 ### Soumyabrata Ghosh:
 - Developed `audit_script.py`, an independent adversarial testing script for heartbeat spoofing and replay attacks.
