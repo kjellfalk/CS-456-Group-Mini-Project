@@ -10,6 +10,8 @@ import secrets
 import socket
 import sys
 import threading
+import random
+import os
 
 import config
 from checkpoint import save_checkpoint, load_checkpoint, CheckpointError
