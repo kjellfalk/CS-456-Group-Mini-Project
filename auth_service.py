@@ -6,6 +6,8 @@ import json
 import secrets
 import socket
 import threading
+import random
+import os
 
 from protocol import build_heartbeat
 
@@ -29,7 +31,7 @@ ACTIVE_TICKETS = {}
 def handle_request(request):
     """Process one JSON request and return a JSON response."""
     # Simulating a hard crash so the monitor triggers.
-    if random.random() < 0.15:
+    if random.random() < 0.05:
         print("\n[!] FATAL: Simulated memory corruption! Crashing process now.\n")
         os._exit(1)
     
