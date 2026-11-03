@@ -6,7 +6,10 @@ import json
 import secrets
 import socket
 import threading
+import random
+import os
 
+from checkpoint import save_checkpoint, CheckpointError
 from protocol import build_heartbeat
 
 HOST = "127.0.0.1"
@@ -47,6 +50,17 @@ def handle_request(request):
 
         ticket = secrets.token_urlsafe(16)
         ACTIVE_TICKETS[ticket] = username
+
+        try:
+            save_checkpoint(ACTIVE_TICKETS)
+
+        except CheckpointError as error:
+            ACTIVE_TICKETS.pop(ticket, None)
+
+            return {
+                "status": "ERROR",
+                "message": f"Could not preserve login state: {error}"
+            }
 
         return {
             "status": "OK",
