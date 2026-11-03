@@ -20,8 +20,15 @@
 
 ### Myla Vencill:
 
+#### Part 1:
 * client.py
 * Wrote some of the report document
+
+#### Part 2:
+* Updated client.py with fault-tolerant logic to automatically loop and reconnect to the standby node after a primary server crash.
+* Implemented persistent ticket validation tests to demonstrate pre-crash state preservation.
+* Improved network read reliability by converting socket reception to file-like stream reading (readline()) and added JSONDecodeError handling for interrupted transmissions.
+* Started report document
 
 ### Soumyabrata Ghosh:
 - Developed `audit_script.py`, an independent adversarial testing script for heartbeat spoofing and replay attacks.
@@ -31,3 +38,13 @@
 - Implemented a replay test that captures genuine signed heartbeats, forwards them to the monitor, and resends identical copies.
 - Verified that the secure monitor rejected previously accepted heartbeats using sequence-number replay detection.
 - Conducted the experiments, collected terminal evidence, and submitted the audit script through Pull Request #5.
+
+### Soumyabrata Ghosh — Part 2
+
+- Extended audit_script.py with false-failover and checkpoint-tampering attacks.
+- Implemented a heartbeat-dropping relay to simulate network communication failures.
+- Verified that the primary remained operational while the monitor incorrectly triggered failover.
+- Confirmed that the secondary could not occupy TCP port 5000 while the primary was still running, preventing a second active server on the same local port.
+- Implemented checkpoint tampering to modify saved authentication state without updating its HMAC.
+- Verified that the secondary detected the HMAC mismatch and rejected corrupted checkpoint data.
+- Tested automatic failover, session-ticket preservation, split-brain prevention, and checkpoint integrity on Windows.

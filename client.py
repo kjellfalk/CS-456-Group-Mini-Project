@@ -1,123 +1,82 @@
-"""
-client.py
-Test client for the Authentication/Ticket Service (Part 2 - Recovery).
-"""
-
-import socket
+"""Part 2 client: retries after a crash and validates the SAME original ticket."""
 import json
+import socket
 import time
+
 import config
 
+
 def connect_with_retry(timeout_s=30, delay_s=0.5):
-    """Keep trying to connect until the service (or its standby) answers."""
-    start = time.monotonic()
+    started = time.monotonic()
     attempt = 0
-    while time.monotonic() - start < timeout_s:
+    while time.monotonic() - started < timeout_s:
         attempt += 1
         try:
             sock = socket.create_connection((config.HOST, config.SERVICE_PORT), timeout=2)
-            elapsed = time.monotonic() - start
-            print(f"[+] Reconnected after {elapsed:.1f}s")
+            sock.settimeout(5)
+            print(f"[CLIENT] connected after {time.monotonic()-started:.2f}s; attempt {attempt}", flush=True)
             return sock, sock.makefile("rb")
         except OSError:
-            print(f"[*] Reconnect attempt {attempt}...")
+            print(f"[CLIENT] reconnect attempt {attempt}", flush=True)
             time.sleep(delay_s)
     return None, None
 
-def send_request(sock, stream, request_dict):
-    """Encodes a dictionary as JSON, sends it, and parses the JSON response by line."""
+
+def send_request(sock, stream, request):
     try:
-        line = json.dumps(request_dict) + "\n"
-        sock.sendall(line.encode("utf-8"))
-        
-        # Read the response by line to avoid split/merged replies
-        response_line = stream.readline()
-        if not response_line:
-            return None
-        return json.loads(response_line.decode("utf-8"))
-    except (OSError, json.JSONDecodeError):
-        # Treats broken pipes, connection resets, and half-received JSON as a lost connection
+        sock.sendall((json.dumps(request) + "\n").encode())
+        raw = stream.readline()
+        return json.loads(raw) if raw else None
+    except (OSError, ValueError):
         return None
 
-def main():
-    print(f"Connecting to Authentication Service at {config.HOST}:{config.SERVICE_PORT}...\n")
-    
-    try:
-        sock = socket.create_connection((config.HOST, config.SERVICE_PORT), timeout=2)
-        stream = sock.makefile("rb")
-    except ConnectionRefusedError:
-        print(f"[!] Connection refused. Is service.py running on port {config.SERVICE_PORT}?")
-        return
-    except Exception as e:
-        print(f"\n[!] An unexpected error occurred: {e}")
-        return
 
+def _close(sock, stream):
+    if stream is not None:
+        stream.close()
+    if sock is not None:
+        sock.close()
+
+
+def main():
+    sock, stream = connect_with_retry()
+    if not sock:
+        print("[CLIENT] initial connection failed", flush=True)
+        return
     try:
-        # --- 1. LOGIN ---
-        login_req = {
-            "type": "LOGIN",
-            "username": "student",
-            "password": "cs456-demo"
-        }
-        print(f"[*] Sending LOGIN Request: {login_req}")
-        resp = send_request(sock, stream, login_req)
-        print(f"[*] Response Received: {resp}\n")
-        
-        if not resp or resp.get("status") != "OK":
-            print("[!] Login failed. Exiting.")
-            sock.close()
+        response = send_request(sock, stream, {"type": "LOGIN", "username": "student", "password": "cs456-demo"})
+        if not response or response.get("status") != "OK":
+            print(f"[CLIENT] login failed: {response}", flush=True)
             return
-        
-        ticket = resp.get("ticket")
-        print(f"[*] Ticket issued: {ticket}\n")
-        
-        # --- 2. VALIDATE (Looping to trigger server crash) ---
-        validate_req = {
-            "type": "VALIDATE",
-            "ticket": ticket
-        }
-        
-        req_count = 1
-        was_reconnected = False
-        
+        ticket = response["ticket"]
+        print(f"[CLIENT] TICKET ISSUED: {ticket} (will reuse after failover)", flush=True)
+        count = 0
+        recovered = False
         while True:
-            if was_reconnected:
-                print(f"[Request {req_count}] Same ticket {ticket[:7]}... -> ", end="", flush=True)
-            else:
-                print(f"[Request {req_count}] Sending VALIDATE Request...")
-                
-            resp = send_request(sock, stream, validate_req)
-            
-            if not resp:
-                print("\n[!] Connection lost - service crashed. Reconnecting...")
-                sock.close()
-                
-                # Initiate automated reconnect sequence
+            count += 1
+            response = send_request(sock, stream, {"type": "VALIDATE", "ticket": ticket})
+            if response is None:
+                print("[CLIENT] connection lost; waiting for automated recovery...", flush=True)
+                _close(sock, stream)
                 sock, stream = connect_with_retry()
                 if not sock:
-                    print("[!] Failed to reconnect after 30 seconds. Exiting.")
-                    break
-                
-                was_reconnected = True
+                    print("[CLIENT] recovery failed: no service after 30s", flush=True)
+                    return
+                recovered = True
                 continue
-            
-            if was_reconnected:
-                print(f"{resp}")
-                was_reconnected = False
-            else:
-                print(f"    Received: {resp}")
-            
-            # Verify if the failover preserved our state
-            if resp.get("status") == "ERROR" and resp.get("message") == "Invalid ticket":
-                print("[!] Ticket rejected after failover - state was NOT preserved.")
-            
-            req_count += 1
-            time.sleep(1)  # Sleep briefly to space out requests
-            
+            print(f"[CLIENT] VALIDATE #{count}: {response}", flush=True)
+            if recovered:
+                if response.get("status") == "OK":
+                    print("[PASS] SAME pre-crash ticket accepted by recovered secondary", flush=True)
+                else:
+                    print("[FAIL] Pre-crash ticket was NOT restored", flush=True)
+                recovered = False
+            time.sleep(1)
     except KeyboardInterrupt:
-        print("\nClient stopped by user.")
-        if sock:
-            sock.close()
+        print("[CLIENT] stopped", flush=True)
+    finally:
+        _close(sock, stream)
+
 
 if __name__ == "__main__":
     main()
